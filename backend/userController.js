@@ -1,21 +1,20 @@
-import { supabase } from "./supabaseClient.js"
+import { supabase } from "./supabaseClient.js";
 
-export async function signUp(email, password) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
-
-  if (error) throw error;
-  return data;
+export async function register(req,res){
+    const {email,password,displayname,username}=req.body;
+    const {data,error}=await supabase.from("users").insert({email,password,displayname,username})
+    if(error) throw error;
+    return res.status(200).json(data);
 }
-export async function signIn(email, password) {
+export async function login(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
+    
   });
 
   if (error) throw error;
-  return data;
+  return res.status(200).json(data);
 }
+
 
