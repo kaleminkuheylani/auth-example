@@ -1,6 +1,5 @@
 import React from "react";
 import "./index.css";
-import ChatRoom  from "./Pages/ChatRoomExcerpt";
 import Navbar from "./Components/Navbar"
 import Credentials from "./Pages/Credentials"
 import {BrowserRouter  ,Routes,Route} from "react-router-dom";

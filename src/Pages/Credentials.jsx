@@ -72,6 +72,7 @@ export default function Credentials(){
       };
       setUser(updatedUser);
       console.log("UPDATED USER:", updatedUser)
+      navigate("/dashboard")
     }
 
     return(

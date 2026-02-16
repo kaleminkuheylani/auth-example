@@ -23,8 +23,8 @@ app.use((req, res, next) => {
 });
 
 
-app.get("/register",register);
-app.get("/login",login);
+app.get("/api/auth",authMiddleware,register);
+app.get("/login",authMiddleware,login);
 app.post("/posts",authMiddleware,createPost);
 app.get("/room/:room_id",authMiddleware,getRoom);
 app.post("/rooms",authMiddleware,createRoom)

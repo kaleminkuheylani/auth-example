@@ -2,7 +2,6 @@ import React from "react";
 import {createRoot} from "react-dom/client";
 import App from "./App";
 import "./index.css";
-import {ContextUtil} from "./lib/utils.jsx";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 
 
@@ -11,8 +10,6 @@ const root=document.getElementById("root");
 const rootElement=createRoot(root);
 rootElement.render(
     <QueryClientProvider client={queryClient}>
-        <ContextUtil>
-            <App/>
-        </ContextUtil>
+        <App/>
     </QueryClientProvider>
 );

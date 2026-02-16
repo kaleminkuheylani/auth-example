@@ -1,21 +1,24 @@
 import React,{ useState } from "react"
+import {FaEnvelope, FaUser} from "react-icons/fa";
 
 export default function Navbar(){
-    const [selected,setSelected]=useState("social");
-    
     return(
-        <div className="h-25 w-full bg-red-500 items-center text-white font-semibold flex justify-center">
+        <div className="h-15 w-full items-center text-white font-semibold flex justify-center">
             <div className="w-[800px] justify-between flex items-center">
                 <div className="text-3xl">
-                    <h1 className="text-white">XianYuan</h1>
+                    <h1 className="text-black text-red-500">AhmetSocial</h1>
                 </div>
-                <div className="flex p-5 gap-5 ">
-                  {/*Interests/ categories */}  
-                </div>
-                <div className="rounded-full w-10 h-10 flex justify-center items-center bg-indigo-700">
-                    <p className="text-white">A</p>
+                <div className="flex  gap-5 ">
+                    <div className="rounded-full w-10 h-10 flex justify-center items-center bg-red-400">
+                        <FaEnvelope/>
+                    
+                    </div>
+                    <div className="rounded-full w-10 h-10 flex justify-center items-center bg-red-400">
+                        <FaUser/>
+                    </div>
                 </div>
             </div>
         </div>
+         
     )
 }
