@@ -3,6 +3,7 @@ import {useState,useContext} from "react"
 import { UsersContext, UsersContextUtil } from "../lib/utils";
 import { useNavigate } from "react-router-dom";
 import {v4 as uuid } from "uuid";
+import { supabase } from "../lib/supabase";
 
 const interests=[
   "fun","movie","tech","sport","health","series","music","economy","travel","food",
@@ -31,6 +32,8 @@ export default function Credentials(){
     const [user,setUser]=useState({...personalizations,...credentials});
     const [selected,setSelected]=useState(false);
     const [selectedInterests, setSelectedInterests] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [authError, setAuthError] = useState(null);
 
     const toggleInterest = (interest) => {
       if (selectedInterests.includes(interest)) {
@@ -49,30 +52,66 @@ export default function Credentials(){
       }));
     };
     
-    function submitCredentials(e){
+    async function submitCredentials(e){
       e.preventDefault();    
+      setIsLoading(true);
+      setAuthError(null);
+
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: user.email,
+          password: user.password,
+          options: {
+            data: {
+              username: user.username
+            }
+          }
+        });
+
+        if (error) throw error;
+
         setUser({
           ...user,
-          id:uuid()
-        })
+          id: data.user.id
+        });
         
-        setState(false)
-        console.log(user);    
+        setState(false);
+      } catch (err) {
+        setAuthError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
     }
 
-      function submitPersonalizations(e) {
+    async function submitPersonalizations(e) {
       e.preventDefault();
+      setIsLoading(true);
+      setAuthError(null);
 
-      const updatedUser = {
-        ...user,
-        bio: user.bio,  // controlled inputtan geliyor
-        interests: selectedInterests,
-        messages:[],
-        references:[],
-      };
-      setUser(updatedUser);
-      console.log("UPDATED USER:", updatedUser)
-      navigate("/dashboard")
+      try {
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError) throw authError;
+        if (!authUser) throw new Error('Not authenticated');
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authUser.id,
+            username: user.username,
+            bio: user.bio,
+            interests: selectedInterests
+          });
+
+        if (profileError) throw profileError;
+
+        navigate("/verification");
+      } catch (err) {
+        setAuthError(err.message);
+        console.error('Personalization error:', err);
+      } finally {
+        setIsLoading(false);
+      }
     }
 
     return(
@@ -91,33 +130,49 @@ export default function Credentials(){
               <h1 className="text-xl font-bold text-center text-red-600">
               Register
               </h1>
+              
+              {authError && (
+                <div className="bg-red-100 text-red-600 p-2 rounded text-sm">
+                  {authError}
+                </div>
+              )}
+
               <input
-                className="w-full rounded-md py-2 px-2 placeholder:text-red-300"
+                className="w-full rounded-md py-2 px-2 placeholder:text-red-300 border"
                 placeholder="Kullanıcı Adı"
                 onChange={setText}
                 name="username"
                 value={user.username}
+                required
               />
  
               <input
-                className="w-full rounded-md py-2 px-2 placeholder:text-red-300"
+                className="w-full rounded-md py-2 px-2 placeholder:text-red-300 border"
                 placeholder="Email"
                 onChange={setText}
                 name="email"
+                type="email"
                 value={user.email}
+                required
               />
         
               <input
-                className="w-full rounded-md py-2 px-2 placeholder:text-red-300"
+                className="w-full rounded-md py-2 px-2 placeholder:text-red-300 border"
                 placeholder="Şifre"
                 type="password"
                 onChange={setText}
                 name="password"
                 value={user.password}
+                required
+                minLength={6}
               />
         
-              <button type="submit" className="w-full rounded-md py-2 bg-red-500 hover:bg-red-600 text-white font-semibold">
-                Go Ahead
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full rounded-md py-2 bg-red-500 hover:bg-red-600 text-white font-semibold disabled:opacity-50"
+              >
+                {isLoading ? 'Processing...' : 'Go Ahead'}
               </button>
               </form>
           </div>
@@ -128,9 +183,15 @@ export default function Credentials(){
               <RegistrationHeader submitted={state}/>
               
               <form onSubmit={submitPersonalizations}>
-                   <textarea
+                {authError && (
+                  <div className="bg-red-100 text-red-600 p-2 rounded text-sm mb-4">
+                    {authError}
+                  </div>
+                )}
+
+                <textarea
                 onChange={setText}
-                className="w-full rounded-md py-2 px-2 placeholder:text-red-300"
+                className="w-full rounded-md py-2 px-2 placeholder:text-red-300 border"
                 placeholder="Bio"    
                 name="bio"
                 value={user.bio}
@@ -143,15 +204,19 @@ export default function Credentials(){
                     <div
                       key={index}
                       onClick={() => toggleInterest(interest)}
-                      className={`rounded-md py-5 px-5 border border-dashed border-gray ${isSelected ? "bg-red-500 text-white" : ""}`}
+                      className={`rounded-md py-5 px-5 border border-dashed border-gray cursor-pointer ${isSelected ? "bg-red-500 text-white" : ""}`}
                     >
                     <p className="text-sm">{interest}</p>
                     </div>
                   );
                   })}
                   </div>
-                  <button type="submit" className=" mt-4 w-full rounded-md py-2 bg-red-500 hover:bg-red-600 text-white font-semibold">
-                    Join
+                  <button 
+                    type="submit" 
+                    disabled={isLoading}
+                    className="mt-4 w-full rounded-md py-2 bg-red-500 hover:bg-red-600 text-white font-semibold disabled:opacity-50"
+                  >
+                    {isLoading ? 'Saving...' : 'Continue to Face Verification'}
                   </button>
             </form> 
           </div>  
