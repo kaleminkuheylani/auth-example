@@ -9,7 +9,7 @@ import {
   ProgressIndicator 
 } from '../Components/Verification';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || '';
 const FRAME_THRESHOLD = 2; // Require 2 consecutive correct frames to pass challenge (faster)
 
 // Camera shutter sound function
