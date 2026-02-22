@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-     
+import { supabase } from "../lib/supabase";
+
 const API_URL = 'localhost:5000'; // Empty string to use Vite proxy for /api routes
 
 // Email verification functions
@@ -90,6 +91,7 @@ function StepOne({ data, onChange, onNext }) {
 
   const validate = () => {
     const newErrors = {};
+    if (!data.gender) newErrors.gender = "Lütfen cinsiyetinizi seçin";
     if (selectedInterests.length > max_interestCount || selectedInterests.length < 0) newErrors.interests = "Hata ,maks 3  tane sec";
     if (!data.lifeExpectations?.trim()) newErrors.lifeExpectations = "This field is required";
     if (!data.whatBroughtYouHere?.trim()) newErrors.whatBroughtYouHere = "This field is required";
@@ -106,6 +108,35 @@ function StepOne({ data, onChange, onNext }) {
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-800">Tell Us About Yourself</h2>
         <p className="text-gray-500 mt-2">Help us understand you better</p>
+      </div>
+
+      {/* Gender Selection */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Cinsiyetiniz <span className="text-red-500">*</span>
+        </label>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { value: 'male', label: 'Erkek', emoji: '👨' },
+            { value: 'female', label: 'Kadın', emoji: '👩' },
+            { value: 'other', label: 'Diğer', emoji: '🧑' },
+          ].map(({ value, label, emoji }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onChange({ gender: value })}
+              className={`py-3 px-2 rounded-xl border-2 font-medium transition-all text-sm flex flex-col items-center gap-1 ${
+                data.gender === value
+                  ? 'border-red-500 bg-red-50 text-red-600 shadow-sm'
+                  : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <span className="text-xl">{emoji}</span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+        {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
       </div>
 
       {/* Interests */}
@@ -649,6 +680,7 @@ export default function Auth() {
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     // Step 1
+    gender: "",
     interests: [],
     lifeExpectations: "",
     whatBroughtYouHere: "",
@@ -702,6 +734,7 @@ export default function Auth() {
         real_name: formData.realName,
         email: formData.email,
         email_verified: true,
+        gender: formData.gender || null,
         interests: formData.interests,
         life_expectations: formData.lifeExpectations,
         what_brought_you_here: formData.whatBroughtYouHere,
@@ -710,7 +743,8 @@ export default function Auth() {
         linkedin_verified: formData.linkedinVerified,
         // Visibility settings
         is_public_in_recommendations: true,
-  
+        // Women start with safety_mode on by default
+        safety_mode: formData.gender === 'female',
       };
 
       console.log("Inserting profile...");

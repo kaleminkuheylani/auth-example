@@ -12,7 +12,11 @@ CREATE TABLE IF NOT EXISTS profiles (
     email TEXT,
     email_verified BOOLEAN DEFAULT FALSE,
     bio TEXT,
-    
+
+    -- Gender field: 'male' | 'female' | 'other'
+    -- Required for gender-based safety filtering
+    gender TEXT CHECK (gender IN ('male', 'female', 'other')) DEFAULT NULL,
+
     interests TEXT[] DEFAULT '{}',
     life_expectations TEXT,
     what_brought_you_here TEXT,
@@ -25,6 +29,8 @@ CREATE TABLE IF NOT EXISTS profiles (
     is_public_in_recommendations BOOLEAN DEFAULT TRUE,
     -- Link visibility settings (default: visible to all)
     show_linkedin BOOLEAN DEFAULT TRUE,
+    -- Safety mode for women: only show verified men when TRUE
+    safety_mode BOOLEAN DEFAULT FALSE,
     -- Engagement tracking for seriousness score
     login_count INTEGER DEFAULT 0,
     last_login_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
@@ -100,6 +106,26 @@ CREATE TABLE IF NOT EXISTS user_balances (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Blocked users table (for women's safety)
+CREATE TABLE IF NOT EXISTS blocked_users (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    blocker_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    blocked_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(blocker_id, blocked_id)
+);
+
+-- Reports table (user-to-user reporting)
+CREATE TABLE IF NOT EXISTS reports (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    reporter_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    reported_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL CHECK (reason IN ('harassment', 'fake_profile', 'inappropriate', 'spam', 'other')),
+    description TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'resolved')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Conversations table (for chat rooms)
 CREATE TABLE IF NOT EXISTS conversations (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -122,6 +148,8 @@ CREATE TABLE IF NOT EXISTS messages (
 
 -- Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE blocked_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE references_data ENABLE ROW LEVEL SECURITY;
 ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
@@ -148,6 +176,23 @@ DROP POLICY IF EXISTS "Gift packages are viewable by everyone" ON gift_packages;
 DROP POLICY IF EXISTS "Gifts are viewable by sender or receiver" ON gifts;
 DROP POLICY IF EXISTS "Users can send gifts" ON gifts;
 DROP POLICY IF EXISTS "Users can view own balance" ON user_balances;
+
+-- Blocked users policies
+CREATE POLICY "Users can view their own blocks"
+    ON blocked_users FOR SELECT USING (auth.uid() = blocker_id);
+
+CREATE POLICY "Users can block others"
+    ON blocked_users FOR INSERT WITH CHECK (auth.uid() = blocker_id AND blocker_id != blocked_id);
+
+CREATE POLICY "Users can unblock"
+    ON blocked_users FOR DELETE USING (auth.uid() = blocker_id);
+
+-- Reports policies
+CREATE POLICY "Users can submit reports"
+    ON reports FOR INSERT WITH CHECK (auth.uid() = reporter_id AND reporter_id != reported_id);
+
+CREATE POLICY "Users can view own reports"
+    ON reports FOR SELECT USING (auth.uid() = reporter_id);
 
 -- Profiles policies
 CREATE POLICY "Profiles are viewable by everyone"
