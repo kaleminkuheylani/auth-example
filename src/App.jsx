@@ -12,9 +12,10 @@ import References from "./Pages/References"
 import Messages from "./Components/Messages"
 import ChatRoom from "./Components/ChatRoom"
 import Wallet from "./Pages/Wallet"
+import Profile from "./Pages/Profile"
 
 function App(){
-    
+
 return(
 
        <BrowserRouter>
@@ -28,12 +29,13 @@ return(
             <Route path="/messages" element={<Messages/>}/>
             <Route path="/chat/:roomId" element={<ChatRoom/>}/>
             <Route path="/wallet" element={<Wallet/>}/>
-            
-            <Route path="/dashboard" element={<Dashboard/>}/>    
-        </Routes>   
+            <Route path="/profile" element={<Profile/>}/>
+
+            <Route path="/dashboard" element={<Dashboard/>}/>
+        </Routes>
 
         </BrowserRouter>
-        
+
     )
 }
 export default App;
