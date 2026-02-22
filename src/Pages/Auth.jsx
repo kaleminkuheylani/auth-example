@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-const API_URL = 'localhost:5000'; // Empty string to use Vite proxy for /api routes
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 // Email verification functions
 async function sendVerificationCode(email) {
