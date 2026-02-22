@@ -98,7 +98,8 @@ export function useFaceAuth() {
         return;
       }
 
-      // Check if camera is available
+      // Check if camera is avbun dev
+      // ailable
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const cameras = devices.filter(d => d.kind === 'videoinput');
@@ -158,35 +159,19 @@ export function useFaceAuth() {
   }, []);
 
   // Step 1: Check Liveness with directional challenge
-  const checkLiveness = useCallback(async (challenge = null) => {
-    const imageData = captureImage();
-    if (!imageData) return { success: false, message: 'No image captured' };
+  const checkLiveness = useCallback(async (imageData, challenge) => {
+    const response = await fetch(`${API_URL}/api/liveness`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image: imageData,
+        challenge: challenge
+      })
+    });
 
-    try {
-      setIsLoading(true);
-      const response = await fetch(`${API_URL}/api/liveness`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          image: imageData,
-          challenge: challenge
-        })
-      });
+    return response.json();
+  }, []);
 
-      const result = await response.json();
-      
-      if (result.live) {
-        setIsLive(true);
-        setLivenessConfidence(result.confidence);
-      }
-      
-      return result;
-    } catch (err) {
-      return { success: false, message: err.message };
-    } finally {
-      setIsLoading(false);
-    }
-  }, [captureImage]);
 
   // Step 2: Register Face
   const registerFace = useCallback(async (userId) => {

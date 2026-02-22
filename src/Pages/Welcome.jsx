@@ -56,18 +56,27 @@ export default function Welcome() {
         <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-500 opacity-10"></div>
         
         <div className="relative max-w-4xl mx-auto px-6 py-16 text-center">
-          {/* Logo Area */}
+          {/* Logo Area - CALYPSO */}
           <div className="mb-8">
-            <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl mx-auto flex items-center justify-center shadow-xl">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
+            <img
+              src="/calypso.png"
+              alt="CALYPSO Logo"
+              className="w-32 bg-gradient-to-br from-red-50 h-32 mx-auto drop-shadow-xl"
+            />
+            <h1 className="text-5xl font-bold mt-6 tracking-wide" style={{ 
+              fontFamily: 'serif',
+              background: 'linear-gradient(135deg, #0f766e 0%, #1e40af 50%, #3730a3 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            }}>
+              CALYPSO
+            </h1>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             Safe Dating Starts Here
-          </h1>
+          </h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
             A secure platform where authenticity meets privacy. 
             We verify every user to create a trusted community.
@@ -75,13 +84,13 @@ export default function Welcome() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => navigate('/api/auth')}
+              onClick={() => navigate('signup')}
               className="px-8 py-4 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl font-semibold text-lg hover:shadow-lg hover:shadow-red-500/25 transition-all transform hover:-translate-y-0.5"
             >
               Create Account
             </button>
             <button
-              onClick={() => navigate('/face-login')}
+              onClick={() => navigate('/login')}
               className="px-8 py-4 bg-white text-gray-700 border-2 border-gray-200 rounded-xl font-semibold text-lg hover:border-red-300 hover:text-red-500 transition-all"
             >
               Login with Face

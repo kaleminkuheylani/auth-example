@@ -1,31 +1,53 @@
--- Supabase Schema for Dating App Verification
+-- Supabase Schema for Kalipso Safety App
 -- Run this in Supabase SQL Editor
 
--- Profiles table (extends auth.users) - IMMUTABLE after creation
+-- Drop existing tables if needed (uncomment for fresh start)
+-- DROP TABLE IF EXISTS gifts, gift_packages, likes, references_data, user_verifications, user_balances, profiles CASCADE;
+
+-- Profiles table (extends auth.users)
 CREATE TABLE IF NOT EXISTS profiles (
     id UUID REFERENCES auth.users(id) PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
+    real_name TEXT,
+    email TEXT,
+    email_verified BOOLEAN DEFAULT FALSE,
     bio TEXT,
-    gender TEXT CHECK (gender IN ('male', 'female', 'other')),
+    
     interests TEXT[] DEFAULT '{}',
+    life_expectations TEXT,
+    what_brought_you_here TEXT,
+    -- LinkedIn OAuth
+    linkedin_link TEXT,
+    linkedin_verified BOOLEAN DEFAULT FALSE,
+    -- Profile visibility in recommendations
+    -- Default TRUE: User appears in recommendations
+    -- User can set FALSE to hide from recommendations (private mode)
+    is_public_in_recommendations BOOLEAN DEFAULT TRUE,
+    -- Link visibility settings (default: visible to all)
+    show_linkedin BOOLEAN DEFAULT TRUE,
+    -- Engagement tracking for seriousness score
+    login_count INTEGER DEFAULT 0,
+    last_login_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    total_gifts_sent INTEGER DEFAULT 0,
+    total_gifts_received INTEGER DEFAULT 0,
     like_count INTEGER DEFAULT 0,
     verified BOOLEAN DEFAULT FALSE,
+    is_locked BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    is_locked BOOLEAN DEFAULT FALSE -- Prevents updates after initial setup
+    last_profile_edit TIMESTAMP WITH TIME ZONE DEFAULT NULL
 );
 
 -- User verifications table (stores face verification data)
 CREATE TABLE IF NOT EXISTS user_verifications (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
-    face_image TEXT NOT NULL, -- Base64 encoded face image
-    face_descriptor JSONB, -- MediaPipe face descriptor
+    face_image TEXT NOT NULL,
     verified_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     is_verified BOOLEAN DEFAULT FALSE
 );
 
--- References table (user references/endorsements)
+-- References table
 CREATE TABLE IF NOT EXISTS references_data (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     from_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -33,49 +55,69 @@ CREATE TABLE IF NOT EXISTS references_data (
     content TEXT NOT NULL,
     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(from_user_id, to_user_id) -- One reference per user pair
+    UNIQUE(from_user_id, to_user_id)
 );
 
--- Likes table (tracks profile likes)
+-- Likes table
 CREATE TABLE IF NOT EXISTS likes (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     from_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     to_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(from_user_id, to_user_id) -- One like per user pair
+    UNIQUE(from_user_id, to_user_id)
 );
 
--- Gift packages table (predefined gift amounts)
+-- Gift packages table
 CREATE TABLE IF NOT EXISTS gift_packages (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    amount INTEGER NOT NULL CHECK (amount IN (50, 150, 250, 500)),
+    amount INTEGER NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
-    commission_rate DECIMAL(4,2) DEFAULT 0.20, -- 20% commission
+    commission_rate DECIMAL(4,2) DEFAULT 0.20,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Gifts table (gift transactions)
+-- Gifts table
 CREATE TABLE IF NOT EXISTS gifts (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     from_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     to_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     package_id UUID REFERENCES gift_packages(id),
     amount INTEGER NOT NULL,
-    commission_amount DECIMAL(10,2) NOT NULL,
-    receiver_amount DECIMAL(10,2) NOT NULL,
-    status TEXT DEFAULT 'completed' CHECK (status IN ('pending', 'completed', 'failed')),
+    commission_amount DECIMAL(10,2) DEFAULT 0,
+    receiver_amount DECIMAL(10,2) DEFAULT 0,
+    status TEXT DEFAULT 'completed',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- User balances table (track gift earnings)
+-- User balances table
 CREATE TABLE IF NOT EXISTS user_balances (
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
     balance DECIMAL(10,2) DEFAULT 0.00,
     total_received DECIMAL(10,2) DEFAULT 0.00,
     total_sent DECIMAL(10,2) DEFAULT 0.00,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Conversations table (for chat rooms)
+CREATE TABLE IF NOT EXISTS conversations (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    initiator_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    recipient_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    last_message_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(initiator_id, recipient_id)
+);
+
+-- Messages table (for chat messages)
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Enable Row Level Security
@@ -86,74 +128,121 @@ ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gift_packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gifts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_balances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies first
+DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Users cannot update locked profiles" ON profiles;
+DROP POLICY IF EXISTS "Users can view own verification" ON user_verifications;
+DROP POLICY IF EXISTS "Users can insert own verification" ON user_verifications;
+DROP POLICY IF EXISTS "References are viewable by everyone" ON references_data;
+DROP POLICY IF EXISTS "Users can create references" ON references_data;
+DROP POLICY IF EXISTS "Users can delete own references" ON references_data;
+DROP POLICY IF EXISTS "Likes are viewable by everyone" ON likes;
+DROP POLICY IF EXISTS "Users can create likes" ON likes;
+DROP POLICY IF EXISTS "Users can delete own likes" ON likes;
+DROP POLICY IF EXISTS "Gift packages are viewable by everyone" ON gift_packages;
+DROP POLICY IF EXISTS "Gifts are viewable by sender or receiver" ON gifts;
+DROP POLICY IF EXISTS "Users can send gifts" ON gifts;
+DROP POLICY IF EXISTS "Users can view own balance" ON user_balances;
 
 -- Profiles policies
 CREATE POLICY "Profiles are viewable by everyone"
-    ON profiles FOR SELECT
-    USING (true);
+    ON profiles FOR SELECT USING (true);
 
 CREATE POLICY "Users can insert own profile"
-    ON profiles FOR INSERT
-    WITH CHECK (auth.uid() = id);
+    ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
--- Prevent updates after profile is locked
-CREATE POLICY "Users cannot update locked profiles"
-    ON profiles FOR UPDATE
-    USING (auth.uid() = id AND NOT is_locked);
+CREATE POLICY "Users can update own profile"
+    ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- User verifications policies
 CREATE POLICY "Users can view own verification"
-    ON user_verifications FOR SELECT
-    USING (auth.uid() = user_id);
+    ON user_verifications FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert own verification"
-    ON user_verifications FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+    ON user_verifications FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- References policies
 CREATE POLICY "References are viewable by everyone"
-    ON references_data FOR SELECT
-    USING (true);
+    ON references_data FOR SELECT USING (true);
 
 CREATE POLICY "Users can create references"
-    ON references_data FOR INSERT
-    WITH CHECK (auth.uid() = from_user_id);
+    ON references_data FOR INSERT WITH CHECK (auth.uid() = from_user_id);
 
 CREATE POLICY "Users can delete own references"
-    ON references_data FOR DELETE
-    USING (auth.uid() = from_user_id);
+    ON references_data FOR DELETE USING (auth.uid() = from_user_id);
 
 -- Likes policies
 CREATE POLICY "Likes are viewable by everyone"
-    ON likes FOR SELECT
-    USING (true);
+    ON likes FOR SELECT USING (true);
 
 CREATE POLICY "Users can create likes"
-    ON likes FOR INSERT
-    WITH CHECK (auth.uid() = from_user_id);
+    ON likes FOR INSERT WITH CHECK (auth.uid() = from_user_id);
 
 CREATE POLICY "Users can delete own likes"
-    ON likes FOR DELETE
-    USING (auth.uid() = from_user_id);
+    ON likes FOR DELETE USING (auth.uid() = from_user_id);
 
--- Gift packages policies (admin only insert/update, everyone can view)
+-- Gift packages policies
 CREATE POLICY "Gift packages are viewable by everyone"
-    ON gift_packages FOR SELECT
-    USING (true);
+    ON gift_packages FOR SELECT USING (true);
 
 -- Gifts policies
 CREATE POLICY "Gifts are viewable by sender or receiver"
-    ON gifts FOR SELECT
-    USING (auth.uid() = from_user_id OR auth.uid() = to_user_id);
+    ON gifts FOR SELECT USING (auth.uid() = from_user_id OR auth.uid() = to_user_id);
 
 CREATE POLICY "Users can send gifts"
-    ON gifts FOR INSERT
-    WITH CHECK (auth.uid() = from_user_id);
+    ON gifts FOR INSERT WITH CHECK (auth.uid() = from_user_id);
 
 -- User balances policies
 CREATE POLICY "Users can view own balance"
-    ON user_balances FOR SELECT
-    USING (auth.uid() = user_id);
+    ON user_balances FOR SELECT USING (auth.uid() = user_id);
+
+-- Conversations policies
+CREATE POLICY "Users can view own conversations"
+    ON conversations FOR SELECT USING (auth.uid() = initiator_id OR auth.uid() = recipient_id);
+
+CREATE POLICY "Users can create conversations"
+    ON conversations FOR INSERT WITH CHECK (auth.uid() = initiator_id);
+
+CREATE POLICY "Users can update own conversations"
+    ON conversations FOR UPDATE USING (auth.uid() = initiator_id OR auth.uid() = recipient_id);
+
+-- Messages policies
+DROP POLICY IF EXISTS "Users can view messages in their conversations" ON messages;
+DROP POLICY IF EXISTS "Users can send messages in their conversations" ON messages;
+DROP POLICY IF EXISTS "Users can update their own messages" ON messages;
+
+CREATE POLICY "Users can view messages in their conversations"
+    ON messages FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM conversations 
+            WHERE conversations.id = messages.conversation_id 
+            AND (conversations.initiator_id = auth.uid() OR conversations.recipient_id = auth.uid())
+        )
+    );
+
+CREATE POLICY "Users can send messages in their conversations"
+    ON messages FOR INSERT WITH CHECK (
+        auth.uid() = sender_id AND
+        EXISTS (
+            SELECT 1 FROM conversations 
+            WHERE conversations.id = messages.conversation_id 
+            AND (conversations.initiator_id = auth.uid() OR conversations.recipient_id = auth.uid())
+        )
+    );
+
+CREATE POLICY "Users can update messages in their conversations"
+    ON messages FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM conversations 
+            WHERE conversations.id = messages.conversation_id 
+            AND (conversations.initiator_id = auth.uid() OR conversations.recipient_id = auth.uid())
+        )
+    );
 
 -- Function to handle updated_at
 CREATE OR REPLACE FUNCTION handle_updated_at()
@@ -164,37 +253,51 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop existing triggers
+DROP TRIGGER IF EXISTS profiles_updated_at ON profiles;
+DROP TRIGGER IF EXISTS like_count_increment ON likes;
+DROP TRIGGER IF EXISTS like_count_decrement ON likes;
+
 -- Trigger for profiles updated_at
 CREATE TRIGGER profiles_updated_at
     BEFORE UPDATE ON profiles
     FOR EACH ROW
     EXECUTE FUNCTION handle_updated_at();
 
--- Function to lock profile after verification
-CREATE OR REPLACE FUNCTION lock_profile_after_verification()
+-- Function to enforce weekly edit limit
+CREATE OR REPLACE FUNCTION enforce_weekly_edit_limit()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE profiles 
-    SET is_locked = true 
-    WHERE id = NEW.user_id;
+    -- Skip check if last_profile_edit is NULL (first edit)
+    IF OLD.last_profile_edit IS NOT NULL THEN
+        -- Check if 7 days have passed since last edit
+        IF OLD.last_profile_edit + INTERVAL '7 days' > NOW() THEN
+            RAISE EXCEPTION 'Profile can only be edited once per week. Next edit available: %', 
+                OLD.last_profile_edit + INTERVAL '7 days';
+        END IF;
+    END IF;
+    
+    -- Update last_profile_edit timestamp
+    NEW.last_profile_edit := NOW();
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to lock profile when verified
-CREATE TRIGGER lock_profile_on_verification
-    AFTER INSERT ON user_verifications
+-- Drop existing trigger
+DROP TRIGGER IF EXISTS enforce_weekly_edit ON profiles;
+
+-- Trigger to enforce weekly edit limit
+CREATE TRIGGER enforce_weekly_edit
+    BEFORE UPDATE ON profiles
     FOR EACH ROW
-    WHEN (NEW.is_verified = true)
-    EXECUTE FUNCTION lock_profile_after_verification();
+    WHEN (OLD.* IS DISTINCT FROM NEW.*) -- Only when actual changes made
+    EXECUTE FUNCTION enforce_weekly_edit_limit();
 
 -- Function to update like_count when like is added
 CREATE OR REPLACE FUNCTION increment_like_count()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE profiles 
-    SET like_count = like_count + 1 
-    WHERE id = NEW.to_user_id;
+    UPDATE profiles SET like_count = like_count + 1 WHERE id = NEW.to_user_id;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -209,9 +312,7 @@ CREATE TRIGGER like_count_increment
 CREATE OR REPLACE FUNCTION decrement_like_count()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE profiles 
-    SET like_count = GREATEST(like_count - 1, 0) 
-    WHERE id = OLD.to_user_id;
+    UPDATE profiles SET like_count = GREATEST(like_count - 1, 0) WHERE id = OLD.to_user_id;
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql;
@@ -233,6 +334,10 @@ BEGIN
     -- Get commission rate from package
     SELECT commission_rate INTO v_commission_rate
     FROM gift_packages WHERE id = NEW.package_id;
+    
+    IF v_commission_rate IS NULL THEN
+        v_commission_rate := 0.20;
+    END IF;
     
     -- Calculate amounts
     v_commission_amount := NEW.amount * v_commission_rate;
@@ -262,6 +367,9 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Drop existing gift trigger
+DROP TRIGGER IF EXISTS process_gift_before_insert ON gifts;
 
 -- Trigger to process gift before insert
 CREATE TRIGGER process_gift_before_insert
